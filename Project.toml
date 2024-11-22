@@ -3,7 +3,13 @@ uuid = "8701a782-b1b0-47ba-9e53-901d719c6388"
 authors = ["Jean-François BAFFIER (@Azzaare)"]
 version = "0.0.1"
 
+[deps]
+Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
+TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+
 [compat]
+Oxygen = "1.5.14"
+TestItems = "1.0.0"
 julia = "1.10"
 
 [extras]
