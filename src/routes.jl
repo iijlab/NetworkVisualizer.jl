@@ -100,9 +100,6 @@ function setup_network_routes(assets_dir::String; network_provider = nothing)
         end
     end
 
-    # Serve static files from assets directory
-    staticfiles(assets_dir, "/")
-
     @info "Routes setup completed" routes=[
         "GET /api/test",
         "GET /api/config",

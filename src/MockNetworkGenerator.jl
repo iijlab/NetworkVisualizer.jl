@@ -3,6 +3,7 @@ module MockNetworkGenerator
 using Dates, Random
 import ..NetworkVisualizer: NetworkData, NetworkMetadata, NetworkNode, NetworkLink,
                             MetricData
+import JSON3
 
 """
 Stores the previous state to generate meaningful updates
@@ -10,76 +11,6 @@ Stores the previous state to generate meaningful updates
 mutable struct NetworkState
     data::NetworkData
     last_update::DateTime
-end
-
-"""
-Create metric data with current values and empty history/alerts
-"""
-function create_metric_data(value::Float64, timestamp::String)
-    MetricData(
-        Dict("allocation" => value, "timestamp" => timestamp),
-        Vector{Dict{String, Any}}(),  # Empty history
-        Vector{Dict{String, Any}}(),   # Empty alerts
-    )
-end
-
-"""
-Generate initial network structure
-"""
-function generate_initial_network(id::String, parent_id::Union{String, Nothing} = nothing)
-    timestamp = Dates.format(now(), "yyyy-mm-ddTHH:MM:SSZ")
-
-    # Create metadata
-    metadata = NetworkMetadata(
-        id,
-        parent_id,
-        "Network $id",
-        timestamp,
-        5000,  # 5 second update interval
-        3600,   # 1 hour retention
-    )
-
-    # Generate nodes in a circular layout
-    num_nodes = rand(3:4)
-    nodes = Vector{NetworkNode}()
-    for i in 1:num_nodes
-        angle = 2π * (i - 1) / num_nodes
-        radius = 200.0
-        x = radius * cos(angle) + 400
-        y = radius * sin(angle) + 300
-
-        is_cluster = rand() < 0.3
-        child_network = is_cluster ? "$(id)_$i" : nothing
-        node_type = is_cluster ? "cluster" : "leaf"
-        initial_allocation = 30.0 + rand() * 40.0
-
-        node = NetworkNode(
-            "$(id)_$i",
-            x,
-            y,
-            node_type,
-            child_network,
-            create_metric_data(initial_allocation, timestamp),
-        )
-        push!(nodes, node)
-    end
-
-    # Generate links
-    links = Vector{NetworkLink}()
-    for i in 1:num_nodes
-        for j in (i + 1):num_nodes
-            if rand() < 0.7  # 70% chance of link
-                link = NetworkLink(
-                    nodes[i].id,
-                    nodes[j].id,
-                    create_metric_data(30.0 + rand() * 40.0, timestamp),
-                )
-                push!(links, link)
-            end
-        end
-    end
-
-    NetworkData(metadata, nodes, links)
 end
 
 """
@@ -91,8 +22,17 @@ function update_metrics(network::NetworkData)
     # Update nodes with small random changes
     new_nodes = map(network.nodes) do node
         old_value = get(node.metrics.current, "allocation", 50.0)
-        # Add small random variation (-5 to +5)
-        new_value = clamp(old_value + (rand() - 0.5) * 10, 0, 100)
+        # Add small random variation (-2 to +2)
+        new_value = clamp(old_value + (rand() - 0.5) * 4, 0, 100)
+
+        metrics = MetricData(
+            Dict{String, Any}(
+                "allocation" => new_value,
+                "timestamp" => timestamp,
+            ),
+            node.metrics.history,
+            node.metrics.alerts,
+        )
 
         NetworkNode(
             node.id,
@@ -100,20 +40,32 @@ function update_metrics(network::NetworkData)
             node.y,
             node.type,
             node.childNetwork,
-            create_metric_data(new_value, timestamp),
+            metrics,
         )
     end
 
     # Update links with small random changes
     new_links = map(network.links) do link
         old_value = get(link.metrics.current, "allocation", 50.0)
-        # Add small random variation (-5 to +5)
-        new_value = clamp(old_value + (rand() - 0.5) * 10, 0, 100)
+        old_capacity = get(link.metrics.current, "capacity", 100.0)
+
+        # Add small random variation (-2 to +2)
+        new_value = clamp(old_value + (rand() - 0.5) * 4, 0, 100)
+
+        metrics = MetricData(
+            Dict{String, Any}(
+                "allocation" => new_value,
+                "capacity" => old_capacity,
+                "timestamp" => timestamp,
+            ),
+            link.metrics.history,
+            link.metrics.alerts,
+        )
 
         NetworkLink(
             link.source,
             link.target,
-            create_metric_data(new_value, timestamp),
+            metrics,
         )
     end
 
@@ -173,7 +125,7 @@ function generate_updates(old_data::NetworkData, new_data::NetworkData)
 end
 
 """
-Creates a network provider with state management
+Creates a network provider with state management that reads initial data from asset files
 """
 function create_mock_network_provider()
     # Store network states
@@ -181,8 +133,14 @@ function create_mock_network_provider()
 
     function get_network(network_id::String)
         if !haskey(network_states, network_id)
-            # Generate new network if doesn't exist
-            data = generate_initial_network(network_id)
+            # Try to read initial network data from assets
+            network_path = joinpath("assets", "data", "networks", "$(network_id).json")
+            if !isfile(network_path)
+                error("Network data file not found: $network_path")
+            end
+
+            # Parse JSON data into our network types
+            data = JSON3.read(read(network_path), NetworkData)
             network_states[network_id] = NetworkState(data, now())
         end
         return network_states[network_id]
