@@ -27,40 +27,87 @@ end
 """
 Setup routes for network data API
 """
-function setup_network_routes(artifact_dir::String; network_provider = nothing)
-    # If no custom provider is given, use the frontend data provider
-    default_provider = create_frontend_network_provider(artifact_dir)
-    active_provider = isnothing(network_provider) ? default_provider : network_provider
+function setup_network_routes(assets_dir::String; network_provider = nothing)
+    # Create API router
+    api = router("/api", tags = ["network-api"])
 
-    # GET /data/config.json - Network configuration
-    get("/data/config.json") do
-        config_path = joinpath(artifact_dir, "data", "config.json")
+    # Determine the appropriate provider based on input
+    provider = if isnothing(network_provider)
+        MockNetworkGenerator.create_mock_network_provider()
+    else
+        network_provider
+    end
+
+    # GET /api/test - Debug route
+    get(api("/test")) do req
+        json(Dict("status" => "API routes are working"))
+    end
+
+    # GET /api/config - Network configuration
+    get(api("/config")) do req
+        @info "Config endpoint called"
+        config_path = joinpath(assets_dir, "data", "config.json")
+
         if isfile(config_path)
-            return JSON3.read(read(config_path))
+            return json(JSON3.read(read(config_path)))
         end
 
-        # Fallback configuration if file not found
-        return Dict(
+        @info "Using fallback config"
+        return json(Dict(
             "nodes" => Dict(
                 "leaf" => Dict("radius" => 8, "strokeWidth" => 2),
                 "cluster" => Dict("radius" => 12, "strokeWidth" => 3),
             ),
             "links" => Dict("width" => 5, "arrowSize" => 5),
-            "colors" => Dict(
+            "visualization" => Dict(
+                "metric" => "allocation",
                 "ranges" => [
-                Dict("max" => 0, "color" => "#006994"),
-                Dict("max" => 45, "color" => "#4CAF50"),
-                Dict("max" => 55, "color" => "#FFC107"),
-                Dict("max" => 75, "color" => "#FF9800"),
-                Dict("max" => 100, "color" => "#f44336"),
-            ]
+                    Dict("max" => 0, "color" => "#006994"),
+                    Dict("max" => 45, "color" => "#4CAF50"),
+                    Dict("max" => 55, "color" => "#FFC107"),
+                    Dict("max" => 75, "color" => "#FF9800"),
+                    Dict("max" => 100, "color" => "#f44336"),
+                ],
             ),
-        )
+        ))
     end
 
-    # GET /data/networks/{id}.json - Network data
-    get("/data/networks/:id.json") do request
-        network_id = request.params[:id]
-        return active_provider(network_id)
+    # GET /api/networks/{id} - Full network data
+    get(api("/networks/{id}")) do req, id::String
+        @info "Network data requested" network_id=id
+        try
+            data = provider(id, :data)
+            @info "Network data generated successfully" network_id=id
+            return json(data)
+        catch e
+            @error "Error generating network data" network_id=id exception=(
+                e, catch_backtrace(),)
+            return Oxygen.Response(500, "Error generating network data")
+        end
     end
+
+    # GET /api/networks/{id}/updates - Network updates
+    get(api("/networks/{id}/updates")) do req, id::String
+        @info "Network updates requested" network_id=id
+        try
+            updates = provider(id, :update)
+            @info "Network updates generated successfully" network_id=id
+            return json(updates)
+        catch e
+            @error "Error generating network updates" network_id=id exception=(
+                e, catch_backtrace(),)
+            return Oxygen.Response(500, "Error generating network updates")
+        end
+    end
+
+    # Serve static files from assets directory
+    staticfiles(assets_dir, "/")
+
+    @info "Routes setup completed" routes=[
+        "GET /api/test",
+        "GET /api/config",
+        "GET /api/networks/:id",
+        "GET /api/networks/:id/updates",
+        "GET /",  # Static files
+    ]
 end
