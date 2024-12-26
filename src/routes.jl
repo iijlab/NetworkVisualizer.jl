@@ -38,18 +38,20 @@ function setup_network_routes(assets_dir::String; network_provider = nothing)
         network_provider
     end
 
-    # GET /api/test - Debug route
-    get(api("/test")) do req
-        json(Dict("status" => "API routes are working"))
-    end
-
     # GET /api/config - Network configuration
-    get(api("/config")) do req
+    get(api("/config")) do req::HTTP.Request
         @info "Config endpoint called"
         config_path = joinpath(assets_dir, "data", "config.json")
 
-        if isfile(config_path)
-            return json(JSON3.read(read(config_path)))
+        try
+            if isfile(config_path)
+                # Read file content as string first
+                content = read(config_path, String)
+                # Then parse JSON
+                return json(JSON3.read(content))
+            end
+        catch e
+            @error "Error reading config file" error=e
         end
 
         @info "Using fallback config"
@@ -73,7 +75,7 @@ function setup_network_routes(assets_dir::String; network_provider = nothing)
     end
 
     # GET /api/networks/{id} - Full network data
-    get(api("/networks/{id}")) do req, id::String
+    get(api("/networks/{id}")) do req::HTTP.Request, id::String
         @info "Network data requested" network_id=id
         try
             data = provider(id, :data)
@@ -87,7 +89,7 @@ function setup_network_routes(assets_dir::String; network_provider = nothing)
     end
 
     # GET /api/networks/{id}/updates - Network updates
-    get(api("/networks/{id}/updates")) do req, id::String
+    get(api("/networks/{id}/updates")) do req::HTTP.Request, id::String
         @info "Network updates requested" network_id=id
         try
             updates = provider(id, :update)
@@ -100,11 +102,5 @@ function setup_network_routes(assets_dir::String; network_provider = nothing)
         end
     end
 
-    @info "Routes setup completed" routes=[
-        "GET /api/test",
-        "GET /api/config",
-        "GET /api/networks/:id",
-        "GET /api/networks/:id/updates",
-        "GET /",  # Static files
-    ]
+    @info "Routes setup completed"
 end

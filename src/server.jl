@@ -6,6 +6,7 @@ function start_server(;
         port::Int = 8080,
         mock::Bool = false,
         network_provider = nothing,
+        kargs...,
 )
     # Setup frontend assets
     assets_dir = setup_frontend_assets()
@@ -28,5 +29,5 @@ function start_server(;
     # Start server
     @info "Starting NetworkVisualizer server on $host:$port ($(mock ? "mock" : "standard") mode)"
     @info "Serving static files from $assets_dir"
-    serve(; host, port)
+    serve(; host, port, kargs...)
 end

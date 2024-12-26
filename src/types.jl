@@ -14,6 +14,12 @@ struct NetworkMetadata
     retentionPeriod::Int  # seconds
 end
 
+function NetworkMetadata(id::String, parentNetwork::Union{String, Nothing} = nothing,
+        description::Union{String, Nothing} = nothing,)
+    lastUpdated = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SSZ")
+    return NetworkMetadata(id, parentNetwork, description, lastUpdated, 5000, 3600)
+end
+
 struct NetworkNode
     id::String
     x::Float64
