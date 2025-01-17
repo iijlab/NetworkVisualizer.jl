@@ -1,6 +1,6 @@
 [frontend]
-git-tree-sha1 = "15ac3c241da73c5dbbc4b251227c9f1e2292b13d"
+git-tree-sha1 = "d5e6f782dfdf687d6ca4e05d55a942ac215da2da"
 
     [[frontend.download]]
-    sha256 = "b06d9c1ffa8b68310f5dafb915bdee3b0a359eeffad440a5ca32811759a0c694"
-    url = "https://github.com/iijlab/NetworkVisualizer.js/archive/refs/tags/v0.0.4.tar.gz"
+    sha256 = "113163c51afe77b9e00307f7b8459d3c0b29d3710257072bdb9914e9cbd5b5b3"
+    url = "https://github.com/iijlab/NetworkVisualizer.js/archive/refs/tags/v0.0.5.tar.gz"
