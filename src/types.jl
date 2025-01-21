@@ -40,3 +40,9 @@ struct NetworkData
     nodes::Vector{NetworkNode}
     links::Vector{NetworkLink}
 end
+
+# Define a struct for network updates
+struct NetworkUpdates
+    timestamp::String
+    changes::NamedTuple{(:nodes, :links), Tuple{Dict{String, Any}, Dict{String, Any}}}
+end
